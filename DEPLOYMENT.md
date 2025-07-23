@@ -7,6 +7,7 @@ This guide will help you deploy the AEM Eventing Webhook to Azure App Service.
 - Azure subscription
 - Azure CLI installed (optional, for command line deployment)
 - Git repository with your code
+- Node.js 22 LTS (for local development)
 
 ## Deployment Options
 
@@ -15,7 +16,7 @@ This guide will help you deploy the AEM Eventing Webhook to Azure App Service.
 1. **Create App Service**
    - Go to Azure Portal
    - Create a new "Web App"
-   - Choose Node.js 18 LTS as the runtime stack
+       - Choose Node.js 22 LTS as the runtime stack
    - Select your subscription and resource group
    - Choose a unique app name
    - Select your region
@@ -47,7 +48,7 @@ az group create --name myResourceGroup --location eastus
 az appservice plan create --name myAppServicePlan --resource-group myResourceGroup --sku B1 --is-linux
 
 # Create web app
-az webapp create --resource-group myResourceGroup --plan myAppServicePlan --name my-aem-webhook --runtime "NODE|18-lts"
+az webapp create --resource-group myResourceGroup --plan myAppServicePlan --name my-aem-webhook --runtime "NODE|22-lts"
 
 # Configure app settings
 az webapp config appsettings set --resource-group myResourceGroup --name my-aem-webhook --settings NODE_ENV=production
@@ -98,7 +99,7 @@ Set these in Azure App Service Configuration:
 #### Required Variables:
 - `NODE_ENV=production`
 - `PORT=8080` (Azure App Service default)
-- `WEBSITE_NODE_DEFAULT_VERSION=18.17.0`
+- `WEBSITE_NODE_DEFAULT_VERSION=22.17.0`
 
 #### Application Insights (Recommended):
 - `APPLICATIONINSIGHTS_CONNECTION_STRING=your_connection_string_here`
@@ -140,7 +141,7 @@ https://your-app-name.azurewebsites.net/webhook
 ### Common Issues
 
 1. **Port Issues**: Azure App Service uses port 8080, not 3000
-2. **Node Version**: Ensure you're using Node.js 18 LTS
+2. **Node Version**: Ensure you're using Node.js 22 LTS
 3. **Web.config**: Make sure web.config is in the root directory
 4. **Dependencies**: Run `npm install --production` in deployment
 

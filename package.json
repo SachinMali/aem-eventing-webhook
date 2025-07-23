@@ -4,8 +4,8 @@
   "description": "A simple webhook to test the AEM Eveting via Adobe I/O and Adobe Developer Console project",
   "main": "app.js",
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
   },
   "scripts": {
     "start": "node app.js",

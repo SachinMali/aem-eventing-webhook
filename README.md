@@ -12,8 +12,8 @@ A simple webhook service to test Adobe Experience Manager (AEM) eventing via Ado
 
 ## Prerequisites
 
-- Node.js (v14 or higher)
-- npm
+- Node.js (v22 LTS or higher)
+- npm (v10 or higher)
 
 ## Installation
 
