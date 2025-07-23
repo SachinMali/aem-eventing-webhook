@@ -1,0 +1,37 @@
+{
+  "name": "aem-eventing-webhook",
+  "version": "1.0.0",
+  "description": "A simple webhook to test the AEM Eveting via Adobe I/O and Adobe Developer Console project",
+  "main": "app.js",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "scripts": {
+    "start": "node app.js",
+    "dev": "DEBUG=webhook-server:* node app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "node",
+    "Adobe I/O",
+    "AEM Eveting",
+    "Sample Webhook"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "morgan": "^1.10.0",
+    "debug": "^4.3.4",
+    "socket.io": "^4.7.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "applicationinsights": "^2.9.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
