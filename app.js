@@ -73,6 +73,12 @@ const limiter = rateLimit({
   },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  keyGenerator: (req) => {
+    // Handle Azure App Service proxy IP addresses
+    const ip = req.ip || req.connection.remoteAddress;
+    // Remove port number if present (e.g., "192.150.10.204:36061" -> "192.150.10.204")
+    return ip ? ip.split(':')[0] : 'unknown';
+  }
 });
 
 // Apply rate limiting to all requests
@@ -88,6 +94,12 @@ const webhookLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    // Handle Azure App Service proxy IP addresses
+    const ip = req.ip || req.connection.remoteAddress;
+    // Remove port number if present (e.g., "192.150.10.204:36061" -> "192.150.10.204")
+    return ip ? ip.split(':')[0] : 'unknown';
+  }
 });
 
 // Middleware
