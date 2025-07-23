@@ -104,7 +104,10 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
     message: 'AEM Eventing Webhook Service is running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    nodeVersion: process.version,
+    platform: process.platform,
+    arch: process.arch
   });
 });
 
