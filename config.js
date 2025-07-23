@@ -35,5 +35,11 @@ module.exports = {
   logging: {
     level: process.env.LOG_LEVEL || 'info',
     enableMorgan: process.env.ENABLE_MORGAN !== 'false'
+  },
+  
+  // AEM Event Validation
+  aemValidation: {
+    enabled: process.env.AEM_VALIDATION_ENABLED !== 'false',
+    // Simple validation based on Adobe headers and event code format
   }
 }; 

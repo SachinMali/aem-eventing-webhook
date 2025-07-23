@@ -31,6 +31,31 @@ app.set('port', port);
 // Azure App Service configuration
 app.set('trust proxy', 1); // Trust first proxy (Azure App Service)
 
+// AEM Event Validation Function
+function validateAEMEvent(req) {
+  // Check for Adobe/AEM-specific headers
+  const adobeHeaders = [
+    'x-adobe-delivery-id',
+    'x-adobe-provider',
+    'x-adobe-event-id',
+    'x-adobe-event-code'
+  ];
+
+  const hasAdobeHeaders = adobeHeaders.some(header => req.headers[header]);
+  
+  if (!hasAdobeHeaders) {
+    return {
+      isValid: false,
+      reason: 'Missing Adobe headers'
+    };
+  }
+
+  return {
+    isValid: true,
+    reason: 'Valid Adobe/AEM event'
+  };
+}
+
 const server = require('http').Server(app);
 const io = require('socket.io')(server);
 
@@ -168,6 +193,35 @@ app.use('/webhook', webhookLimiter, function(req, res) {
   const startTime = Date.now();
   
   try {
+    // AEM Event Validation (only for POST requests)
+    if (req.method === 'POST') {
+      const validationResult = validateAEMEvent(req);
+      if (!validationResult.isValid) {
+        console.log('Rejected non-AEM event:', validationResult.reason);
+        
+        // Track rejected event in Application Insights
+        if (appInsights) {
+          const client = appInsights.defaultClient;
+          client.trackEvent({
+            name: 'NonAEMEventRejected',
+            properties: {
+              reason: validationResult.reason,
+              source: req.headers['user-agent'] || 'unknown',
+              ip: req.ip,
+              headers: JSON.stringify(req.headers)
+            }
+          });
+        }
+        
+        return res.status(403).json({
+          success: false,
+          error: 'Forbidden',
+          message: 'Only AEM events are accepted',
+          reason: validationResult.reason
+        });
+      }
+    }
+
     const payload = {
       headers: req.headers || {},
       params: req.params || {},
@@ -179,7 +233,7 @@ app.use('/webhook', webhookLimiter, function(req, res) {
       time: new Date()
     };
 
-    console.log('Received webhook event:', JSON.stringify(payload, null, 2));
+    console.log('Received valid webhook event:', JSON.stringify(payload, null, 2));
 
     // Track webhook event in Application Insights
     if (appInsights) {

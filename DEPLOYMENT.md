@@ -116,6 +116,9 @@ Set these in Azure App Service Configuration:
 - `LOG_LEVEL=info` (default: info)
 - `ENABLE_MORGAN=true` (default: true)
 
+#### AEM Event Validation (Optional):
+- `AEM_VALIDATION_ENABLED=true` (default: true)
+
 ### Webhook URL
 
 After deployment, your webhook URL will be:
