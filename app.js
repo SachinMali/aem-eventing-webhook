@@ -4,12 +4,26 @@ var logger = require('morgan');
 var bodyParser = require('body-parser');
 var debug = require('debug')('webhook-server:server');
 var rateLimit = require('express-rate-limit');
+var helmet = require('helmet');
 
 var app = express();
 var port = normalizePort(process.env.PORT || '3000');
 app.set('port', port);
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://maxcdn.bootstrapcdn.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://code.jquery.com", "https://ajax.aspnetcdn.com", "https://maxcdn.bootstrapcdn.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "wss:", "ws:"]
+    }
+  }
+}));
 
 app.use(logger('dev'));
 app.use(bodyParser.json({type: 'application/cloudevents+json'}));
@@ -53,12 +67,33 @@ var webhookLimiter = rateLimit({
   }
 });
 
+// HTTPS enforcement for production (Azure)
+if (process.env.NODE_ENV === 'production') {
+  app.use(function(req, res, next) {
+    if (req.headers['x-forwarded-proto'] !== 'https') {
+      return res.redirect('https://' + req.headers.host + req.url);
+    }
+    next();
+  });
+}
+
 app.use(function (req, res, next) {
     next();
 });
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Health check endpoint for Azure
+app.get('/health', function(req, res) {
+  res.status(200).json({
+    status: 'OK',
+    message: 'AEM Eventing Webhook Service is running',
+    timestamp: new Date().toISOString(),
+    nodeVersion: process.version,
+    platform: process.platform
+  });
+});
 
 /* Here we process the request to make a payload object. This payload object is emitted to
  * the UI and placed into a fixed template using io.sockets.
