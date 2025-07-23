@@ -46,11 +46,17 @@
 
 	<!-- Templates for displaying the log-->
 	<script id="logItemTemplate" type="text/x-jQuery-tmpl">
-		<li class="list-group-item list-group-item list-group-item-info" >
+		<li class="list-group-item ${status === 'REJECTED' ? 'list-group-item-danger' : 'list-group-item-info'}" >
 			<div class="list-group-item-head" onClick="toggleListItem(this)">
-				<span class="label label-default">${method}</span> ${path} <span class="pull-right">${time}</span>
+				<span class="label ${status === 'REJECTED' ? 'label-danger' : 'label-default'}">${method}</span> 
+				${path} 
+				${status === 'REJECTED' ? '<span class="label label-warning">REJECTED</span>' : ''}
+				<span class="pull-right">${time}</span>
 			</div>
 			<div class="list-group-item-body well">
+				${status === 'REJECTED' ? '<p><strong>Status:</strong> <span class="text-danger">REJECTED</span></p>' : ''}
+				${status === 'REJECTED' ? '<p><strong>Reason:</strong> <span class="text-danger">' + reason + '</span></p>' : ''}
+				${status === 'REJECTED' ? '<p><strong>Error:</strong> <span class="text-danger">' + error + '</span></p>' : ''}
 				<p>query : <pre>${JSON.stringify(query, undefined, 2)}</pre></p>
 				<p>path : ${path}</p>
 				<p>protocol : ${protocol}</p>

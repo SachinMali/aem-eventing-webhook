@@ -199,6 +199,25 @@ app.use('/webhook', webhookLimiter, function(req, res) {
       if (!validationResult.isValid) {
         console.log('Rejected non-AEM event:', validationResult.reason);
         
+        // Create rejection payload for UI display
+        const rejectionPayload = {
+          headers: req.headers || {},
+          params: req.params || {},
+          query: req.query,
+          path: req.path,
+          protocol: req.protocol,
+          method: req.method,
+          body: req.body,
+          time: new Date(),
+          status: 'REJECTED',
+          reason: validationResult.reason,
+          error: 'Forbidden - Only AEM events are accepted'
+        };
+
+        // Emit rejection to socket.io for UI display
+        io.sockets.emit('webhookEvent:' + req.path.replace('/', ''), rejectionPayload);
+        io.sockets.emit('webhookEvent:all', rejectionPayload);
+        
         // Track rejected event in Application Insights
         if (appInsights) {
           const client = appInsights.defaultClient;
