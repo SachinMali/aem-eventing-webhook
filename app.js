@@ -191,6 +191,18 @@ app.use('/webhook', webhookLimiter, function(req, res) {
   const startTime = Date.now();
   
   try {
+    // Create the payload object (ORIGINAL FUNCTIONALITY)
+    var payload = {
+      headers : req.headers || {},
+      params : req.params || {},
+      query : req.query,
+      path: req.path,
+      protocol : req.protocol,
+      method: req.method,
+      body : req.body,
+      time : new Date()
+    };
+
     // Handle the challenge for webhook registration (GET request from Adobe)
     if (req.query.challenge) {
       console.log('Adobe webhook challenge received:', req.query.challenge);
@@ -202,10 +214,15 @@ app.use('/webhook', webhookLimiter, function(req, res) {
         ip: req.ip
       });
       
+      // Emit to socket.io (ORIGINAL FUNCTIONALITY)
+      io.sockets.emit('webhookEvent:' + req.path.replace('/', ''), payload);
+      io.sockets.emit('webhookEvent:all', payload);
+      
+      // handle the challenge (ORIGINAL FUNCTIONALITY)
       return res.send(req.query.challenge);
     }
 
-    // AEM Event Validation (only for POST requests)
+    // AEM Event Validation (only for POST requests) - ENHANCEMENT
     if (req.method === 'POST') {
       const validationResult = validateAEMEvent(req);
       if (!validationResult.isValid) {
@@ -213,14 +230,7 @@ app.use('/webhook', webhookLimiter, function(req, res) {
         
         // Create rejection payload for UI display
         const rejectionPayload = {
-          headers: req.headers || {},
-          params: req.params || {},
-          query: req.query,
-          path: req.path,
-          protocol: req.protocol,
-          method: req.method,
-          body: req.body,
-          time: new Date(),
+          ...payload,
           status: 'REJECTED',
           reason: validationResult.reason,
           error: 'Forbidden - Only AEM events are accepted'
@@ -247,17 +257,6 @@ app.use('/webhook', webhookLimiter, function(req, res) {
       }
     }
 
-    const payload = {
-      headers: req.headers || {},
-      params: req.params || {},
-      query: req.query,
-      path: req.path,
-      protocol: req.protocol,
-      method: req.method,
-      body: req.body,
-      time: new Date()
-    };
-
     // Only log full payload in development
     if (process.env.NODE_ENV === 'development') {
       console.log('Received valid webhook event:', JSON.stringify(payload, null, 2));
@@ -277,7 +276,7 @@ app.use('/webhook', webhookLimiter, function(req, res) {
       method: req.method
     });
 
-    // Emit to socket.io for real-time updates
+    // Emit to socket.io for real-time updates (ORIGINAL FUNCTIONALITY)
     io.sockets.emit('webhookEvent:' + req.path.replace('/', ''), payload);
     io.sockets.emit('webhookEvent:all', payload);
 
