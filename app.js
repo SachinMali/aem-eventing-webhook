@@ -68,6 +68,48 @@ app.use(express.static(path.join(__dirname, 'public')));
 */
 app.use('/webhook', webhookLimiter, function(req, res) {
 
+  // Handle Adobe webhook challenge (GET request with challenge query parameter)
+  if (req.query.challenge) {
+    console.log('Adobe webhook challenge received:', req.query.challenge);
+    
+    var payload = {
+      headers : req.headers || {},
+      params : req.params || {},
+      query : req.query,
+      path: req.path,
+      protocol : req.protocol,
+      method: req.method,
+      body : req.body,
+      time : new Date()
+    };
+
+    io.sockets.emit('webhookEvent:' + req.path.replace('/', ''), payload);
+    io.sockets.emit('webhookEvent:all', payload);
+
+    // handle the challenge
+    return res.send(req.query.challenge);
+  }
+
+  // AEM Event Validation - check for Adobe headers
+  var adobeHeaders = [
+    'x-adobe-provider',
+    'x-adobe-event-id', 
+    'x-adobe-event-code'
+  ];
+
+  var hasAdobeHeaders = adobeHeaders.some(function(header) {
+    return req.headers[header];
+  });
+
+  if (!hasAdobeHeaders) {
+    console.log('Rejected non-AEM event - missing Adobe headers from IP:', req.ip);
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: 'Only AEM events are accepted'
+    });
+  }
+
+  // Valid AEM event - process normally
   var payload = {
     headers : req.headers || {},
 		params : req.params || {},
@@ -82,8 +124,11 @@ app.use('/webhook', webhookLimiter, function(req, res) {
   io.sockets.emit('webhookEvent:' + req.path.replace('/', ''), payload);
   io.sockets.emit('webhookEvent:all', payload);
 
-  // handle the challenge
-  return res.send(req.query.challenge);
+  // Send success response
+  res.status(200).json({
+    success: true,
+    message: 'AEM event received successfully'
+  });
 
 });
 
