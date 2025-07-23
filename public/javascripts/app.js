@@ -18,7 +18,7 @@ $(function() {
 		
 		var uri = $('#webhookUri').val().trim();				
 		
-		var currentUri = uri === '*' ? 'webhookEvent:all' : 'webhookEvent:' + uri;
+		currentUri = uri === '*' ? 'webhookEvent:all' : 'webhookEvent:' + uri;
 		var webhookUrl = socketUrl + '/webhook/' + uri;
 
 		$('#log-list').prepend($('<li></li>').attr('class', 'list-group-item').html('Connected to: <a target="_blank" href="' + webhookUrl + '">' + webhookUrl + '</a>'));
