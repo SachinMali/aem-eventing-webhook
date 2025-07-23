@@ -123,14 +123,37 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Root endpoint
+// Root endpoint - serve the web interface
 app.get('/', (req, res) => {
+  console.log('Serving web interface from:', path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
+    if (err) {
+      console.error('Error serving index.html:', err);
+      res.status(500).json({
+        error: 'Failed to serve web interface',
+        message: err.message
+      });
+    }
+  });
+});
+
+// API info endpoint
+app.get('/api', (req, res) => {
   res.json({
     message: 'AEM Eventing Webhook Service',
     version: '1.0.0',
+    description: 'A webhook service for receiving AEM events',
     endpoints: {
       health: '/health',
-      webhook: '/webhook'
+      webhook: '/webhook',
+      webInterface: '/',
+      apiInfo: '/api'
+    },
+    usage: {
+      webInterface: 'Visit / for the web interface to monitor webhook events',
+      webhook: 'POST to /webhook to send webhook events',
+      health: 'GET /health for service health check',
+      apiInfo: 'GET /api for this API information'
     }
   });
 });
@@ -340,6 +363,8 @@ function onListening() {
     : 'port ' + addr.port;
   debug('Listening on ' + bind);
   console.log(`🚀 AEM Eventing Webhook Service running on port ${addr.port}`);
+  console.log(`🌐 Web interface: http://localhost:${addr.port}/`);
   console.log(`📊 Health check: http://localhost:${addr.port}/health`);
   console.log(`🔗 Webhook endpoint: http://localhost:${addr.port}/webhook`);
+  console.log(`📋 API info: http://localhost:${addr.port}/api`);
 }
