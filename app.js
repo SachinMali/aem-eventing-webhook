@@ -3,6 +3,7 @@ var path = require('path');
 var logger = require('morgan');
 var bodyParser = require('body-parser');
 var debug = require('debug')('webhook-server:server');
+var rateLimit = require('express-rate-limit');
 
 var app = express();
 var port = normalizePort(process.env.PORT || '3000');
@@ -13,6 +14,31 @@ var io = require('socket.io')(server);
 app.use(logger('dev'));
 app.use(bodyParser.json({type: 'application/cloudevents+json'}));
 app.use(bodyParser.urlencoded({ extended: false }));
+
+// Rate limiting configuration
+var webhookLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50, // limit each IP to 50 requests per windowMs
+  message: {
+    error: 'Too many webhook requests from this IP, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  keyGenerator: function(req) {
+    // Handle Azure App Service proxy IP addresses
+    var ip = req.ip || req.connection.remoteAddress;
+    // Remove port number if present (e.g., "192.150.10.204:36061" -> "192.150.10.204")
+    return ip ? ip.split(':')[0] : 'unknown';
+  },
+  handler: function(req, res) {
+    console.log('Rate limit exceeded for IP:', req.ip);
+    res.status(429).json({
+      error: 'Too many webhook requests from this IP, please try again later.',
+      retryAfter: '15 minutes'
+    });
+  }
+});
 
 app.use(function (req, res, next) {
     next();
@@ -27,7 +53,7 @@ app.use(express.static(path.join(__dirname, 'public')));
  * Event Gateway will send you a challenge (it will be a GET), and expects you to extract the
  * challenge string and send it back. Without this step. your webhook will fail to register.
 */
-app.use('/webhook', function(req, res) {
+app.use('/webhook', webhookLimiter, function(req, res) {
 
   var payload = {
     headers : req.headers || {},
