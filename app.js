@@ -18,7 +18,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // Rate limiting configuration
 var webhookLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // limit each IP to 50 requests per windowMs
+  max: 1000, // limit each IP to 1000 requests per windowMs (Adobe I/O friendly)
   message: {
     error: 'Too many webhook requests from this IP, please try again later.',
     retryAfter: '15 minutes'
@@ -29,10 +29,23 @@ var webhookLimiter = rateLimit({
     // Handle Azure App Service proxy IP addresses
     var ip = req.ip || req.connection.remoteAddress;
     // Remove port number if present (e.g., "192.150.10.204:36061" -> "192.150.10.204")
-    return ip ? ip.split(':')[0] : 'unknown';
+    var cleanIp = ip ? ip.split(':')[0] : 'unknown';
+    
+    // Check if it's likely Adobe I/O (you can add known Adobe IP ranges here)
+    var isAdobeIO = req.headers['user-agent'] && 
+                   (req.headers['user-agent'].includes('Adobe') || 
+                    req.headers['user-agent'].includes('adobe'));
+    
+    // Use different keys for Adobe I/O vs others for potential different limits
+    return isAdobeIO ? 'adobe-io-' + cleanIp : cleanIp;
   },
   handler: function(req, res) {
-    console.log('Rate limit exceeded for IP:', req.ip);
+    var isAdobeIO = req.headers['user-agent'] && 
+                   (req.headers['user-agent'].includes('Adobe') || 
+                    req.headers['user-agent'].includes('adobe'));
+    
+    console.log('Rate limit exceeded for IP:', req.ip, 
+                isAdobeIO ? '(Adobe I/O)' : '(Other)');
     res.status(429).json({
       error: 'Too many webhook requests from this IP, please try again later.',
       retryAfter: '15 minutes'
