@@ -31,6 +31,14 @@ app.set('port', port);
 // Azure App Service configuration
 app.set('trust proxy', 1); // Trust first proxy (Azure App Service)
 
+// Helper function for Application Insights tracking
+const trackEvent = (name, properties) => {
+  if (appInsights) {
+    const client = appInsights.defaultClient;
+    client.trackEvent({ name, properties });
+  }
+};
+
 // AEM Event Validation Function
 function validateAEMEvent(req) {
   // Check for Adobe/AEM-specific headers
@@ -63,7 +71,7 @@ const io = require('socket.io')(server);
 if (process.env.NODE_ENV === 'production') {
   app.use((req, res, next) => {
     // Check if the request is coming through HTTPS
-    if (req.headers['x-forwarded-proto'] !== 'https' && req.headers['x-forwarded-proto'] !== 'https') {
+    if (req.headers['x-forwarded-proto'] !== 'https') {
       return res.redirect(`https://${req.headers.host}${req.url}`);
     }
     next();
@@ -88,12 +96,12 @@ app.use(helmet({
   }
 }));
 
-// Rate limiting
-const limiter = rateLimit({
+// Rate limiting configuration
+const createRateLimiter = (max, message) => rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max, // limit each IP to max requests per windowMs
   message: {
-    error: 'Too many requests from this IP, please try again later.',
+    error: message,
     retryAfter: '15 minutes'
   },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
@@ -107,25 +115,10 @@ const limiter = rateLimit({
 });
 
 // Apply rate limiting to all requests
-app.use(limiter);
+app.use(createRateLimiter(100, 'Too many requests from this IP, please try again later.'));
 
 // Webhook-specific rate limiting (more restrictive)
-const webhookLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // limit each IP to 50 webhook requests per windowMs
-  message: {
-    error: 'Too many webhook requests from this IP, please try again later.',
-    retryAfter: '15 minutes'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => {
-    // Handle Azure App Service proxy IP addresses
-    const ip = req.ip || req.connection.remoteAddress;
-    // Remove port number if present (e.g., "192.150.10.204:36061" -> "192.150.10.204")
-    return ip ? ip.split(':')[0] : 'unknown';
-  }
-});
+const webhookLimiter = createRateLimiter(50, 'Too many webhook requests from this IP, please try again later.');
 
 // Middleware
 app.use(cors());
@@ -150,14 +143,19 @@ app.get('/health', (req, res) => {
 
 // Root endpoint - serve the web interface
 app.get('/', (req, res) => {
-  console.log('Serving web interface from:', path.join(__dirname, 'public', 'index.html'));
-  res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  console.log('Serving web interface from:', indexPath);
+  
+  res.sendFile(indexPath, (err) => {
     if (err) {
       console.error('Error serving index.html:', err);
-      res.status(500).json({
-        error: 'Failed to serve web interface',
-        message: err.message
-      });
+      // Only send error response if headers haven't been sent yet
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: 'Failed to serve web interface',
+          message: err.message
+        });
+      }
     }
   });
 });
@@ -193,6 +191,20 @@ app.use('/webhook', webhookLimiter, function(req, res) {
   const startTime = Date.now();
   
   try {
+    // Handle the challenge for webhook registration (GET request from Adobe)
+    if (req.query.challenge) {
+      console.log('Adobe webhook challenge received:', req.query.challenge);
+      
+      // Track challenge in Application Insights
+      trackEvent('AdobeWebhookChallenge', {
+        challenge: req.query.challenge,
+        method: req.method,
+        ip: req.ip
+      });
+      
+      return res.send(req.query.challenge);
+    }
+
     // AEM Event Validation (only for POST requests)
     if (req.method === 'POST') {
       const validationResult = validateAEMEvent(req);
@@ -219,18 +231,12 @@ app.use('/webhook', webhookLimiter, function(req, res) {
         io.sockets.emit('webhookEvent:all', rejectionPayload);
         
         // Track rejected event in Application Insights
-        if (appInsights) {
-          const client = appInsights.defaultClient;
-          client.trackEvent({
-            name: 'NonAEMEventRejected',
-            properties: {
-              reason: validationResult.reason,
-              source: req.headers['user-agent'] || 'unknown',
-              ip: req.ip,
-              headers: JSON.stringify(req.headers)
-            }
-          });
-        }
+        trackEvent('NonAEMEventRejected', {
+          reason: validationResult.reason,
+          source: req.headers['user-agent'] || 'unknown',
+          ip: req.ip,
+          headers: JSON.stringify(req.headers)
+        });
         
         return res.status(403).json({
           success: false,
@@ -252,30 +258,28 @@ app.use('/webhook', webhookLimiter, function(req, res) {
       time: new Date()
     };
 
-    console.log('Received valid webhook event:', JSON.stringify(payload, null, 2));
-
-    // Track webhook event in Application Insights
-    if (appInsights) {
-      const client = appInsights.defaultClient;
-      client.trackEvent({
-        name: 'WebhookEventReceived',
-        properties: {
-          eventType: req.body?.eventType || 'unknown',
-          source: req.headers['user-agent'] || 'unknown',
-          ip: req.ip,
-          method: req.method
-        }
+    // Only log full payload in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Received valid webhook event:', JSON.stringify(payload, null, 2));
+    } else {
+      console.log('Received valid webhook event:', {
+        method: req.method,
+        eventType: req.body?.eventType || 'unknown',
+        timestamp: new Date().toISOString()
       });
     }
+
+    // Track webhook event in Application Insights
+    trackEvent('WebhookEventReceived', {
+      eventType: req.body?.eventType || 'unknown',
+      source: req.headers['user-agent'] || 'unknown',
+      ip: req.ip,
+      method: req.method
+    });
 
     // Emit to socket.io for real-time updates
     io.sockets.emit('webhookEvent:' + req.path.replace('/', ''), payload);
     io.sockets.emit('webhookEvent:all', payload);
-
-    // Handle the challenge for webhook registration
-    if (req.query.challenge) {
-      return res.send(req.query.challenge);
-    }
 
     // Process AEM events
     if (req.body && req.body.eventType) {
@@ -382,7 +386,7 @@ server.on('listening', onListening);
  */
 
 function normalizePort(val) {
-  var port = parseInt(val, 10);
+  const port = parseInt(val, 10);
 
   if (isNaN(port)) {
     // named pipe
