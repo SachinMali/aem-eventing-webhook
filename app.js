@@ -280,25 +280,7 @@ app.use('/webhook', webhookLimiter, function(req, res) {
     io.sockets.emit('webhookEvent:' + req.path.replace('/', ''), payload);
     io.sockets.emit('webhookEvent:all', payload);
 
-    // Process AEM events
-    if (req.body && req.body.eventType) {
-      switch (req.body.eventType) {
-        case 'page.modified':
-          console.log('Page modified event received');
-          break;
-        case 'asset.created':
-          console.log('Asset created event received');
-          break;
-        case 'asset.modified':
-          console.log('Asset modified event received');
-          break;
-        case 'asset.deleted':
-          console.log('Asset deleted event received');
-          break;
-        default:
-          console.log(`Unknown event type: ${req.body.eventType}`);
-      }
-    }
+
 
     // Track successful processing
     if (appInsights) {
@@ -312,13 +294,6 @@ app.use('/webhook', webhookLimiter, function(req, res) {
         success: true
       });
     }
-
-    // Send success response
-    res.status(200).json({
-      success: true,
-      message: 'Webhook event processed successfully',
-      timestamp: new Date().toISOString()
-    });
 
   } catch (error) {
     console.error('Error processing webhook:', error);
